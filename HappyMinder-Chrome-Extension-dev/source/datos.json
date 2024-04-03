@@ -1,0 +1,32 @@
+[
+    {
+        "titulo": "Bienestar",
+        "porcentaje": 50,
+        "icono": "source/icon/bienestar.png"
+    },
+    {
+        "titulo": "Cultivar emociones positivas",
+        "porcentaje": 80,
+        "icono": "source/icon/cultivaremociones.png"
+    },
+    {
+        "titulo": "Ejercicio",
+        "porcentaje": 100,
+        "icono": "source/icon/ejercicio.png"
+    },
+    {
+        "titulo": "Nutrición",
+        "porcentaje": 5,
+        "icono": "source/icon/nutricion.png"
+    },
+    {
+        "titulo": "Organización",
+        "porcentaje": 60,
+        "icono": "source/icon/organizacion.png"
+    },
+    {
+        "titulo": "Ánimo",
+        "porcentaje": 10,
+        "icono": "source/icon/animo.png"
+    }
+]

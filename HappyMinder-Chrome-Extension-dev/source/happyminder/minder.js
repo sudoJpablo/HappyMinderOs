@@ -1,0 +1,280 @@
+var minderModule = (function () {
+
+    const url = "http://localhost:4001/graphql";
+    const options = {
+        body: '',
+        headers: { "Accept": "application/json", "Content-Type": "application/json" },
+        method: "POST"
+    }
+    const defaultItem = {
+        id: "60d36d8739c4ec57b0727874",
+        message: "La cantidad de agua diaria recomendada son 2Lt. ¿Qué tal si comenzamos con un vaso?",
+        timer_long: 30,
+        url_image: "https://media.tenor.com/images/0b631d0205d7248e4c4a76ec03c3ef6e/tenor.gif",
+        frequency: "daily"
+    };
+
+    const $titleContent = $('.title-habit');
+    const $actionContent = $('.action-habit');
+    const $timerContent = $('.timer-habit');
+    const $timeContent = $('#time');
+    const $timerContainer = $('#timer');
+    const $imageHabit = $('#img-habit');
+    const $videoHabit = $('#video-habit');
+    const $imageDiv = $('.img-habit-div');
+    const $videoDiv = $('.video-habit-div');
+    const $complementaryInfo = $('.complementary-info');
+
+    const $acceptBtn = $('#accept-habit');
+    const $rejectBtn = $('#reject-habit');
+
+    const timerReadyClass = 'timer-ready';
+
+    var habitId;
+    var storage = {};
+    var initializeStorage = function (localStorage) {
+        storage = localStorage;
+    }
+
+
+    window.addEventListener('updateBlocked', function(event) {
+        storage.blocked = event.detail.updatedBlocked;
+        temporarilyEnableUrls();
+        // Puedes realizar otras acciones necesarias después de actualizar storage.blocked
+        console.log('storage.blocked actualizado en el código 2:', storage.blocked);
+    });
+
+    var getRandomHabitFromAPI = async function () {
+        if (storage.runningHabit === 1){
+            undoneHabit();
+        }
+        if (storage.temporarilyEnabled.length === 0){
+            addLoader($titleContent);
+            try {
+                let query = { "query": `query {habitToDo(userId:"${storage.user.id}"){id,message,timer_long,url_image,url_video,frequency,complementary_information}}` };
+                options['body'] = JSON.stringify(query);
+                const response = await fetch(url, options);
+                const habit = await response.json();
+                await showHabit(habit);
+            } catch (error) {
+                console.error(error);
+                $titleContent.text(defaultItem.message);
+                $acceptBtn.data(defaultItem.timer_long);
+                $timeContent.text(defaultItem.timer_long);
+            }
+        } /* else {
+            freeTimeEnabled();
+        } */
+    }
+
+    var showHabit = async (res) => {
+        let item = res.data.habitToDo;
+        if (!item.timer_long){
+            location.reload();
+            return;
+        }
+        chrome.storage.local.set({ runningHabitID: item.id });
+        habitId = item.id;
+        $titleContent.text(item.message);
+        $acceptBtn.data("timer", item.timer_long);
+        $timeContent.text(item.timer_long);
+        
+
+        if (item.complementary_information){
+            $complementaryInfo.html(`
+                <p>Para más información sobre este hábito <a href="${item.complementary_information}" target="_blank"> clic aquí</a></p>
+                `
+            );
+        }
+        if (item.url_video){
+            $videoHabit.attr("src", item.url_video);
+            $videoDiv.show();
+        } else if (item.url_image){
+            $imageHabit.attr("src", item.url_image);
+            $imageDiv.show();
+        } else {
+            $imageHabit.attr("src", defaultItem.url_image);
+            $imageDiv.show();
+        }
+        
+    }
+
+    var acceptHabit = function () {
+        $acceptBtn.on("click", function () {
+            trackeHabit(habitId, 'Done', storage.user.id);
+            chrome.storage.local.set({ runningHabit: 1 });
+            let timer = $(this).data("timer");
+            $actionContent.hide();
+            $timerContent.show();
+            counter(timer);
+        });
+    }
+
+    var rejectHabit = function () {
+        $rejectBtn.on("click", function () {
+            trackeHabit(habitId, 'Undone', storage.user.id);
+            $actionContent.hide();
+            $timerContent.show();
+            $timerContainer.html(`
+                <h3>¡Oh no!</h3>
+                <p>Para la próxima esperamos que realices el hábito <i class="far fa-sad-tear"></i></p>
+                <p>Desde ahora podrás acceder a las urls por tiempo limitado.</p>
+                `
+            );
+            storage.blocked.forEach(url => {
+                $timerContainer.append(`
+                    <li>
+                        <a href="http://${url}">${url}</a>
+                    </li>
+                `);
+            });
+            temporarilyEnableUrls();
+        });
+    }
+
+    // Add a new function for logging URL time
+    var logUrlTime = function (url) {
+        const logData = {
+            user: storage.user.id,
+            url: url,
+            time: storage.freeTime,
+            date: dateToDMY(new Date())
+        };
+        console.log(JSON.stringify(logData));
+    };
+
+    var counter = function (counter = 5) {
+        if (!counter) counter = 5;
+        var interval = setInterval(function () {
+            counter--;
+            // Display 'counter' wherever you want to display it.
+            if (counter <= 0) {
+                clearInterval(interval);
+                $timerContainer.html(`
+                    <h3>¡Genial!</h3>
+                    <p>Felicitaciones por realizar el hábito <i class="fas fa-laugh-beam"></i></p>
+                    <p>Desde ahora podrás acceder a las urls por tiempo limitado.</p>
+                    `
+                );
+                storage.blocked.forEach(url => {
+                    $timerContainer.append(`
+                        <li>
+                            <a href="http://${url}">${url}</a>
+                        </li>
+                    `);
+                });
+                temporarilyEnableUrls();
+                return;
+            } else {
+                $timeContent.text(counter);
+            }
+        }, 1000);
+    }
+
+    var addLoader = function ($content) {
+        $content.html('<i class="fa fa-spinner fa-spin"></i>');
+    }
+
+    var temporarilyEnableUrls = async function () {
+        if (storage.temporarilyEnabled.length == 0) {
+            let query = { "query": `query{urls{user,url_name}}` };
+            options['body'] = JSON.stringify(query);
+            const response = await fetch(url, options);
+            const data = await response.json();
+            console.log(data);
+        
+            // Usuario específico a filtrar
+            const userToFilter = storage.user.id;
+        
+            // Filtrar las URLs del usuario específico
+            const filteredUrls = data.data.urls.filter(item => item.user === userToFilter);
+        
+            // Obtener solo los nombres de las URLs
+            const userUrls = filteredUrls.map(item => item.url_name);
+            console.log(userUrls);
+            chrome.storage.local.set({ blocked: [] }, function() {
+                console.log("Se ha reiniciado storage.blocked. Ahora no hay URLs bloqueadas.");
+            });
+            userUrls.forEach(url => {
+                console.log(url);
+                blockedUrl1 = [];
+                blockedUrl1.push(url); 
+                chrome.storage.local.set({ temporarilyEnabled: blockedUrl1 });
+                chrome.storage.local.set({ blocked: [] });
+                let currentTime = (new Date()).toJSON();
+                chrome.storage.local.set({ doneHabitAt: currentTime });
+            });
+
+/*             chrome.storage.local.set({ temporarilyEnabled: storage.blocked });
+            chrome.storage.local.set({ blocked: [] });
+            let currentTime = (new Date()).toJSON();
+            chrome.storage.local.set({ doneHabitAt: currentTime }); */
+        }
+    }
+
+    var trackeHabit = async function (habit, action, user) {
+        try {
+            let date = dateToDMY(new Date());
+            options['body'] = `{
+                "query":"mutation createHabitTrack($input: HabitsTrackInput) {createHabitTrack(input: $input) {  id}}",
+                "variables":{"input":{
+                    "habitSelected":"${habit}",
+                    "action":"${action}",
+                    "date":"${date}",
+                    "user":"${user}"
+                }}
+            }`;
+            const response = await fetch(url, options);
+            const id = await response.json();
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    var dateToDMY = function (date) {
+        var d = date.getDate();
+        var m = date.getMonth() + 1;
+        var y = date.getFullYear();
+        return '' + (d <= 9 ? '0' + d : d) + '-' + (m <= 9 ? '0' + m : m) + '-' + y;
+    }
+
+    var undoneHabit = function () {
+        trackeHabit(storage.runningHabitID, 'Undone', storage.user.id);
+        chrome.storage.local.set({ runningHabit: 0 });
+        chrome.storage.local.set({ runningHabitID: 0 });
+        console.log('undone');
+    }
+
+    var freeTimeEnabled = function () {
+        $titleContent.text('Tiempo libre');
+        $actionContent.hide();
+        $timerContent.show();
+        $timerContainer.html(`
+            <h3>¡Estás dentro de tu tiempo libre!</h3>
+            <p>Puedes acceder a las urls por tiempo limitado.</p>
+            `
+        );
+    }
+
+    return {
+        initializeStorage: initializeStorage,
+        getRandomHabitFromAPI: getRandomHabitFromAPI,
+        acceptHabit: acceptHabit,
+        rejectHabit: rejectHabit,
+        temporarilyEnableUrls: temporarilyEnableUrls,
+    }
+})();
+
+$(document).ready(function () {
+    chrome.storage.local.get(function (data) {
+        storage = data;
+        init(storage);
+    });
+});
+
+function init(storage) {
+    minderModule.initializeStorage(storage);
+    minderModule.getRandomHabitFromAPI();
+    minderModule.acceptHabit();
+    minderModule.rejectHabit();
+};

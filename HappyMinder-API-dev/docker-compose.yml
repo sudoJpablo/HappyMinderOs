@@ -1,0 +1,14 @@
+version: "3.7"
+services:
+  happyminderapi:
+    container_name: hm-api
+    #image: duceallisk/hontza-source:custom-X
+    build: .
+    restart: always
+    ports:
+            - "8000:4001"
+    environment:
+      PORT: ${PORT}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_SERVER: ${DB_SERVER}
