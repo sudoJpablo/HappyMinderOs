@@ -7,3 +7,5 @@ Pasos para iniciar la automatizacion del test Funcional:
 - en el archivo, ubicar “extension_patch” y colocar la ruta local en la cual se encuentra la extensión
 - En el archivo, ubicar “url” y colocar la url que se genera al abrir la extension en Chrome
 - En consola correr el archivo con “python testFuncional.py”
+
+Para el test no Funcional se deben serguir las mismas instrucciones pero con el archivo "testNoFuncional.py"
