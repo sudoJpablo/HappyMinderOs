@@ -17,6 +17,4 @@
     ```
     python testF.py
     ```
-
-## Test No Funcional
-Para realizar el test no funcional, sigue los mismos pasos mencionados anteriormente, pero en lugar de utilizar el archivo "testF.py", utiliza el archivo "testNFl.py".
+7. Para realizar el test no funcional, sigue los mismos pasos mencionados anteriormente, pero en lugar de utilizar el archivo "testF.py", utiliza el archivo "testNF.py".
